@@ -1,0 +1,35 @@
+[project]
+name = "colored-inkt"
+version = "1.0.0"
+description = "Colour filters that make ink easier to see in CT surface volumes of the Herculaneum scrolls, with a viewer"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "scikit-image>=0.22",
+    "pillow>=10",
+    "tifffile>=2023.7",
+    # Reading Zarr surface volumes and labels, locally or from the open-data bucket.
+    "zarr>=3",
+    "fsspec[http]>=2024.2",
+]
+
+[project.optional-dependencies]
+# Three of the 79 filters (ICA, k-means, non-local means) need these; the recommended ones do not.
+extra = ["scikit-learn>=1.3", "opencv-python-headless>=4.8"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+colored-inkt = "colored_inkt.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/colored_inkt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

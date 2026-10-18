@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colored Inkt</title>
+<style>
+  :root {
+    --bg: #15161a; --panel: #1e2026; --line: #30333b; --text: #e6e6e6; --muted: #9aa0aa;
+    --accent: #ffcc33; --good: #4cc38a; --bad: #ef6461; --blue: #5aa9e6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+  header { display: flex; gap: 18px; align-items: center; padding: 10px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .02em; }
+  header h1 span { color: var(--accent); }
+  nav button { background: none; border: none; color: var(--muted); font: inherit; padding: 6px 10px; cursor: pointer; border-radius: 6px; }
+  nav button.on { color: var(--text); background: var(--panel); }
+  .grow { flex: 1; }
+  input, select { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font: inherit; }
+  main { padding: 18px; max-width: 1400px; margin: 0 auto; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); }
+  .btn { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  .btn:hover { border-color: var(--muted); }
+  .btn kbd { color: var(--muted); margin-right: 6px; }
+
+  /* Results */
+  table { border-collapse: collapse; width: 100%; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.baseline td:first-child + td { color: var(--accent); }
+  .chip { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #2a2d35; color: var(--muted); }
+  .ci { width: 220px; }
+
+  .methods td { white-space: normal; vertical-align: top; }
+
+  /* Segments */
+  #tab-segments { display: grid; grid-template-columns: 260px 1fr 270px; gap: 14px; }
+  #tab-segments.hidden { display: none !important; }
+  @media (max-width: 1100px) { #tab-segments { grid-template-columns: 1fr; } }
+  .seg-side section { background: var(--panel); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  .seg-side h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .seg-item { padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .seg-item:hover { background: #262931; }
+  .seg-item.on { background: #2e323c; outline: 1px solid var(--accent); }
+  .seg-item small { display: block; color: var(--muted); }
+  .m-list { max-height: 42vh; overflow-y: auto; }
+  .m-item { padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 13px; }
+  .m-item:hover { background: #262931; }
+  .m-item.on { background: #3a3220; color: var(--accent); }
+  .m-fam { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin: 6px 0 2px; }
+  .modes { display: flex; gap: 6px; }
+  .modes button { flex: 1; padding: 6px 4px; font-size: 12px; }
+  .modes button.on { border-color: var(--accent); color: var(--accent); }
+  .seg-main { min-width: 0; }
+  .seg-bar { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; min-height: 24px; font-size: 13px; flex-wrap: wrap; }
+  .seg-views { display: flex; gap: 8px; height: calc(100vh - 150px); min-height: 360px; }
+  .pane { position: relative; flex: 1; overflow: hidden; background: #000; border-radius: 8px; cursor: grab; user-select: none; }
+  .pane.dragging { cursor: grabbing; }
+  .layer { position: absolute; inset: 0; pointer-events: none; }
+  .world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .world img { position: absolute; left: 0; top: 0; image-rendering: auto; }
+  .pane.pixelated .world img { image-rendering: pixelated; }
+  .pane-tag { position: absolute; left: 8px; top: 8px; background: rgba(0,0,0,.65); padding: 2px 8px; border-radius: 4px; font-size: 12px; pointer-events: none; }
+  .pane-tag.right { left: auto; right: 8px; }
+  .divider { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--accent); cursor: ew-resize; }
+  .divider::after { content: "⇔"; position: absolute; top: 50%; left: -11px; width: 25px; height: 25px; line-height: 25px; text-align: center;
+                    background: var(--accent); color: #000; border-radius: 50%; font-size: 13px; transform: translateY(-50%); }
+  .busy { position: absolute; right: 8px; bottom: 8px; background: rgba(0,0,0,.7); padding: 3px 10px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+  .prep { padding: 40px; text-align: center; color: var(--muted); }
+  .world canvas { position: absolute; left: 0; top: 0; }
+  .pane.pixelated .world canvas { image-rendering: pixelated; }
+  .m-item { display: flex; gap: 6px; align-items: center; }
+  .m-item .star { color: var(--muted); cursor: pointer; width: 14px; flex: none; }
+  .m-item .star.on { color: var(--accent); }
+  .m-item .del { margin-left: auto; color: var(--muted); cursor: pointer; visibility: hidden; }
+  .m-item:hover .del { visibility: visible; }
+  .m-fam.starred { color: var(--accent); }
+  #s-list { max-height: 34vh; overflow-y: auto; }
+  .seg-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; }
+  .seg-actions .btn { padding: 3px 8px; font-size: 12px; }
+  .link { background: none; border: none; color: var(--blue); cursor: pointer; font: inherit; padding: 0; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; width: min(560px, 94vw); padding: 18px 20px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0 0 4px; font-size: 16px; }
+  dialog label { display: block; margin: 10px 0 3px; font-size: 13px; }
+  dialog input[type=text], dialog input[type=number], dialog select { width: 100%; }
+  dialog .row { display: flex; gap: 10px; }
+  dialog .row > div { flex: 1; }
+  dialog .hint { font-size: 12px; color: var(--muted); margin: 3px 0 0; }
+  dialog .modes { margin: 12px 0 4px; }
+  dialog .err { color: var(--bad); font-size: 13px; margin-top: 10px; white-space: pre-wrap; }
+  dialog .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; align-items: center; }
+  .rec { color: var(--accent); font-size: 11px; margin-left: 6px; }
+  .m-item.sub { padding-left: 22px; font-size: 12px; }
+  .disp section { background: var(--panel); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  .disp h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .disp label { display: block; font-size: 13px; margin: 6px 0 2px; }
+  .disp input[type=range] { width: 100%; }
+  .disp .row { display: flex; gap: 8px; align-items: center; }
+  .disp .row > * { flex: 1; }
+  .disp .val { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .disp select { width: 100%; }
+  #d-hist { width: 100%; height: 60px; background: #111; border-radius: 4px; display: block; }
+  .cmap-bar { height: 10px; border-radius: 3px; margin-top: 4px; }
+  .tint { border-top: 1px solid #333; margin-top: 10px; padding-top: 8px; }
+  .depth-ticks { display: flex; gap: 1px; margin: 2px 0 6px; }
+  .depth-ticks span { flex: 1; height: 6px; background: #333; border-radius: 1px; cursor: pointer; }
+  .depth-ticks span.ready { background: #5aa9e6; }
+  .depth-ticks span.on { background: var(--accent); }
+  .depth-ticks span.zero { outline: 1px solid #888; }
+  .tint .row label { margin: 0; }
+  .tint input[type=color] { flex: 0 0 44px; height: 24px; padding: 0; border: none; background: none; cursor: pointer; }
+  .tint canvas { width: 100%; height: 44px; background: #111; border-radius: 4px; display: block; margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Colored <span>Inkt</span></h1>
+  <nav>
+    <button data-tab="segments" class="on">Segments</button>
+    <button data-tab="methods">Methods</button>
+  </nav>
+  <div class="grow"></div>
+  <span class="muted" style="font-size:12px">label-free display filters for CT surface volumes</span>
+</header>
+
+<main>
+  <!-- Segments -->
+  <div id="tab-segments" class="hidden">
+    <div class="seg-side">
+      <section>
+        <h3>Segment <button class="link" id="s-add" style="float:right;text-transform:none;letter-spacing:0">+ add a segment</button></h3>
+        <div id="s-list"></div>
+        <div class="seg-actions" id="s-actions"></div>
+      </section>
+      <section>
+        <h3>Compare</h3>
+        <div class="modes">
+          <button class="btn" data-mode="swipe"><kbd>1</kbd> Swipe</button>
+          <button class="btn" data-mode="blink"><kbd>2</kbd> Blink</button>
+          <button class="btn" data-mode="side"><kbd>3</kbd> Side</button>
+        </div>
+        <label style="display:block;margin-top:8px">A (reference)<select id="s-ref" style="width:100%;margin-top:2px"></select></label>
+        <label style="display:block;margin-top:6px"><input type="checkbox" id="s-autoblink"> auto-blink every
+          <select id="s-blinkms"><option>400</option><option selected>700</option><option>1200</option></select> ms</label>
+        <label style="display:block;margin-top:6px" id="s-label-box"><input type="checkbox" id="s-label"> ink labels (<kbd>L</kbd>)</label>
+        <label style="display:block">opacity <input type="range" id="s-opacity" min="10" max="100" value="80"></label>
+      </section>
+      <section>
+        <h3>B (filter) <span class="muted" style="text-transform:none">· <kbd>←</kbd><kbd>→</kbd></span></h3>
+        <div class="m-list" id="s-methods"></div>
+      </section>
+      <section class="muted" style="font-size:12px">
+        Drag to pan, wheel to zoom, <kbd>F</kbd> fit, <kbd>Space</kbd> show A / B, <kbd>[</kbd><kbd>]</kbd> segment.
+        Swipe: drag the yellow handle. Animated filters are rendered at half size.
+        Labels: yellow outline = ink, dimmed = nobody labelled there.
+      </section>
+    </div>
+    <div class="seg-main">
+      <div class="seg-bar"><b id="s-title"></b><span class="muted" id="s-info"></span></div>
+      <div class="seg-views" id="s-views"></div>
+      <p class="muted" id="s-idea" style="font-size:12px;margin:8px 0 0"></p>
+    </div>
+    <div class="disp" id="disp">
+      <section>
+        <h3>Display of B</h3>
+        <div class="val" id="d-kind"></div>
+        <div id="d-range">
+          <canvas id="d-hist" width="240" height="60"></canvas>
+          <label><input type="checkbox" id="d-auto"> calibrated range (per region, label-free)</label>
+          <label>min <span class="val" id="d-lo-v"></span></label>
+          <input type="range" id="d-lo" min="0" max="100" step="0.1">
+          <label>max <span class="val" id="d-hi-v"></span></label>
+          <input type="range" id="d-hi" min="0" max="100" step="0.1">
+        </div>
+        <div id="d-levels">
+          <label>black point <span class="val" id="d-black-v"></span></label>
+          <input type="range" id="d-black" min="0" max="254" step="1">
+          <label>white point <span class="val" id="d-white-v"></span></label>
+          <input type="range" id="d-white" min="1" max="255" step="1">
+        </div>
+        <label>gamma <span class="val" id="d-gamma-v"></span></label>
+        <input type="range" id="d-gamma" min="-2" max="2" step="0.05">
+        <div id="d-colour">
+          <label>colour scheme</label>
+          <div class="row"><select id="d-cmap"></select><label style="flex:0 0 auto;margin:0"><input type="checkbox" id="d-invert"> invert</label></div>
+          <div class="cmap-bar" id="d-cmap-bar"></div>
+        </div>
+        <div id="d-strength-box">
+          <label>heat strength <span class="val" id="d-strength-v"></span></label>
+          <input type="range" id="d-strength" min="0" max="1" step="0.05">
+        </div>
+        <div id="d-tints"></div>
+      </section>
+      <section id="d-depth-box">
+        <h3>Depth scan (B)</h3>
+        <label>offset <span class="val" id="d-depth-v"></span></label>
+        <input type="range" id="d-depth" min="-30" max="30" step="2" value="0">
+        <div class="depth-ticks" id="d-depth-ticks" title="blue: computed, click to show"></div>
+        <select id="d-dmode">
+          <option value="0">segment moved (face re-found)</option>
+          <option value="1">fixed layers (face kept)</option>
+        </select>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="d-depth-zero">0</button>
+          <button class="btn" id="d-depth-play">▶ play</button>
+          <button class="btn" id="d-depth-scan">compute all</button>
+        </div>
+        <p class="val" style="margin:6px 0 0" id="d-depth-note">Shifts B as if the segment lay this many voxels
+          (2.4 µm) deeper into the sheet (+) or out in front of it (−). A stays on the true surface; the colouring
+          stays that of the true surface. A new depth takes ~1 min the first time (cached after);
+          "compute all" fills every depth in the background so the slider and play are instant.</p>
+      </section>
+      <section>
+        <h3>Pre-filter</h3>
+        <label>fiber notch before rendering B</label>
+        <select id="d-notch"><option value="0">off</option><option value="4">±4°</option>
+          <option value="7">±7°</option><option value="12">±12°</option></select>
+        <label>… and A</label>
+        <select id="d-notch-a"><option value="0">off</option><option value="4">±4°</option>
+          <option value="7">±7°</option><option value="12">±12°</option></select>
+        <p class="val" style="margin:6px 0 0">Removes both fiber families from every depth plane and the
+          height map before the method runs (first use per segment and width: ~6 s).</p>
+        <label>despeckle before rendering B</label>
+        <select id="d-speckle"><option value="0">off</option><option value="30">specks ≤ 30 µm</option>
+          <option value="50">specks ≤ 50 µm</option><option value="90">specks ≤ 90 µm</option></select>
+        <label>… and A</label>
+        <select id="d-speckle-a"><option value="0">off</option><option value="30">specks ≤ 30 µm</option>
+          <option value="50">specks ≤ 50 µm</option><option value="90">specks ≤ 90 µm</option></select>
+        <p class="val" style="margin:6px 0 0">Flattens small dense specks (mineral grains) to their surroundings
+          on every depth plane: bright features shorter than the size in every direction. Fibers, strokes and
+          larger patches stay. Runs before the notch (first use per segment and size: ~10 s).</p>
+      </section>
+      <section id="d-thresh">
+        <h3>Threshold</h3>
+        <select id="d-tmode">
+          <option value="off">off</option><option value="above">show above</option>
+          <option value="below">show below</option><option value="between">show between</option>
+          <option value="outside">show outside</option>
+        </select>
+        <label>t₁ <span class="val" id="d-t1-v"></span></label>
+        <input type="range" id="d-t1" min="0" max="100" step="0.1">
+        <div id="d-t2-box"><label>t₂ <span class="val" id="d-t2-v"></span></label>
+          <input type="range" id="d-t2" min="0" max="100" step="0.1"></div>
+        <label>elsewhere</label>
+        <select id="d-else"><option value="clear">transparent (A shows)</option><option value="gray">gray</option><option value="dark">black</option></select>
+      </section>
+      <section>
+        <h3>Layer</h3>
+        <label>B opacity over A <span class="val" id="d-opacity-v"></span></label>
+        <input type="range" id="d-opacity" min="0" max="100" step="1">
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="d-reset">Reset</button>
+          <button class="btn" id="d-save">Save as variant</button>
+        </div>
+        <p class="val" style="margin:8px 0 0">Settings are per method and remembered. Percentiles refer to this region.
+          A saved variant appears under ★ Starred.</p>
+      </section>
+    </div>
+  </div>
+
+  <!-- Methods -->
+  <div id="tab-methods" class="hidden">
+    <p class="muted" style="font-size:13px;max-width:900px">Every filter is a fixed formula: none is trained on ink
+      labels. Each first finds the papyrus face under every pixel and reads fixed depths from it. Lengths are physical
+      (µm), so a filter looks at the same scale at any resolution. <span class="rec">recommended</span> marks the three
+      filters that held up best across scrolls.</p>
+    <table class="methods"><thead><tr><th>Family</th><th>Filter</th><th>What it does</th></tr></thead>
+      <tbody id="methods-body"></tbody></table>
+  </div>
+</main>
+
+<dialog id="add-dlg">
+  <h2>Add a segment</h2>
+  <p class="hint">A surface volume: the CT layers sampled along a traced segment. Its layers are stored next to the
+    examples and prepared once (a minute or two for a 2 cm square).</p>
+  <div class="modes">
+    <button class="btn on" data-src="upload" type="button">Upload files</button>
+    <button class="btn" data-src="path" type="button">Folder, file or URL</button>
+  </div>
+  <div id="a-upload">
+    <label>Layer images (one file per layer, or one multi-page TIFF)</label>
+    <input type="file" id="a-files" multiple accept=".tif,.tiff,.png,.jpg,.jpeg,.npy">
+    <p class="hint" id="a-files-info">Select every layer at once (e.g. 00.tif … 64.tif). They are stacked in file-name order.</p>
+    <label>Ink labels (optional): one image the size of a layer, ink = not black</label>
+    <input type="file" id="a-label" accept=".tif,.tiff,.png,.jpg,.jpeg">
+  </div>
+  <div id="a-path" class="hidden">
+    <label>Path on the computer running the server, or an https URL</label>
+    <input type="text" id="a-src" placeholder="/data/segments/20230827161847/layers   or   https://…/surface-volumes/….zarr">
+    <p class="hint">A folder of layer images, a .tif or .npy stack, or a Zarr (OME-Zarr pyramids: give the level).</p>
+    <div class="row">
+      <div><label>Zarr level</label><input type="number" id="a-level" value="0" min="0" max="6"></div>
+      <div><label>Ink labels (optional)</label><input type="text" id="a-label-src" placeholder="path or URL"></div>
+    </div>
+  </div>
+  <label>Name</label>
+  <input type="text" id="a-title" placeholder="e.g. PHerc0172 20241024131838 cols 2000-4000">
+  <div class="row">
+    <div><label>Layer spacing (µm)</label><input type="number" id="a-layer" step="0.001" min="0.1" placeholder="e.g. 7.91"></div>
+    <div><label>Pixel size (µm)</label><input type="number" id="a-pixel" step="0.001" min="0.1" placeholder="same as layers"></div>
+  </div>
+  <p class="hint">Layer spacing is the voxel size of the scan for the usual layers/ folder. A Zarr with metadata fills
+    both by itself. Layers far from 2.4 µm are resampled to 2.4 µm planes, the depth the filters are written for.</p>
+  <div class="row">
+    <div><label>Ink is on the face towards</label>
+      <select id="a-side"><option value="1">higher layer numbers</option><option value="-1">lower layer numbers</option></select></div>
+    <div><label>Bin in-plane</label>
+      <select id="a-bin"><option value="1">off</option><option value="2">2 × 2</option><option value="3">3 × 3</option><option value="4">4 × 4</option></select></div>
+  </div>
+  <p class="hint">Not sure about the side? Keep the default; you can flip it later, which only recomputes.</p>
+  <label>Crop (optional): top, left, height, width in pixels of the layers</label>
+  <div class="row">
+    <div><input type="number" id="a-y" placeholder="top"></div><div><input type="number" id="a-x" placeholder="left"></div>
+    <div><input type="number" id="a-h" placeholder="height"></div><div><input type="number" id="a-w" placeholder="width"></div>
+  </div>
+  <p class="hint">Empty: the centre square of at most 2048 px (after binning). The viewer takes at most 4096 px per
+    side; render larger areas with <code>colored-inkt render</code>.</p>
+  <div class="err" id="a-err"></div>
+  <div class="buttons"><span class="muted" id="a-progress" style="margin-right:auto;font-size:12px"></span>
+    <button class="btn" type="button" id="a-cancel">Cancel</button>
+    <button class="btn" type="button" id="a-go" style="border-color:var(--accent)">Add</button></div>
+</dialog>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let META = null;
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json" },
+                                         body: JSON.stringify(body) } : {});
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || res.statusText);
+  return json;
+}
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// --- Tabs ----------------------------------------------------------------------
+function showTab(name) {
+  if (!["segments", "methods"].includes(name)) name = "segments";
+  document.querySelectorAll("nav button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  ["segments", "methods"].forEach((t) => $("tab-" + t).classList.toggle("hidden", t !== name));
+  store.set("tab", name);
+  if (name === "segments") loadSegments();
+}
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+document.addEventListener("keydown", (e) => {
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName) || $("add-dlg").open) return;
+  if (store.get("tab", "segments") === "segments") segKey(e);
+});
+
+// --- Segments ------------------------------------------------------------------------------
+const SEG = {
+  list: [], id: store.get("seg.id", null), ref: store.get("seg.ref", "mid_slice"),
+  vis: store.get("seg.vis", "gen_two_hue"), mode: store.get("seg.mode", "swipe"),
+  view: null, swipe: 0.5, showA: false, blinkTimer: null, poll: null, panes: [], drag: null,
+  starred: { starred: [], variants: [] }, variant: null, spec: null, specFor: null,
+  depth: +store.get("seg.depth", "0"), dfixed: store.get("seg.dfixed", "0") === "1", depthPlay: null, depthPoll: null,
+};
+const segRegion = () => SEG.list.find((r) => r.id === SEG.id);
+// What the server renders differently: the pre-filters and, for a recolourable render, the colour map.
+function serverQuery(vis, spec, forB = false) {
+  const d = visDisplay(vis), q = new URLSearchParams();
+  if (spec.notch) q.set("notch", spec.notch);
+  if (spec.speckle) q.set("speckle", spec.speckle);
+  if (forB && SEG.depth) { q.set("depth", SEG.depth); if (SEG.dfixed) q.set("fixed", 1); }
+  if (d.recolor && spec.cmap && spec.cmap !== d.recolor) q.set("cmap", spec.cmap);
+  const s = q.toString();
+  return s ? "?" + s : "";
+}
+const segUrl = (vis, spec = {}, forB = false) => {
+  const v = META.visualizers.find((x) => x.name === vis);
+  return `/seg/${SEG.id}/${vis}.${v && v.animated ? "webp" : "png"}${serverQuery(vis, spec, forB)}`;
+};
+const refNotch = () => +store.get("seg.refNotch", "0");
+const refSpeckle = () => +store.get("seg.refSpeckle", "0");
+const refSpec = () => ({ notch: refNotch(), speckle: refSpeckle(), cmap: loadSpec(SEG.ref).cmap });
+
+async function loadSegments() {
+  const res = await api("/api/segments");
+  SEG.list = res.segments;
+  if (!SEG.list.find((r) => r.id === SEG.id)) SEG.id = SEG.list[0]?.id ?? null;
+  if (!$("s-ref").options.length) {
+    $("s-ref").innerHTML = META.visualizers.map((v) => `<option value="${v.name}">${v.title}</option>`).join("");
+    $("s-ref").value = SEG.ref;
+    $("s-ref").onchange = () => { SEG.ref = $("s-ref").value; store.set("seg.ref", SEG.ref); segRender(); };
+    buildSegMethods();
+    document.querySelectorAll("#tab-segments .modes button").forEach((b) => b.onclick = () => segMode(b.dataset.mode));
+    $("s-label").onchange = segRender;
+    $("s-opacity").oninput = segApplyLabel;
+    $("s-autoblink").onchange = segBlink;
+    $("s-blinkms").onchange = segBlink;
+  }
+  segList();
+  segRender();
+}
+const stateText = (r) => r.state === "ready" ? "ready" : r.state === "not prepared"
+  ? (r.kind === "example" ? "not downloaded" : "not prepared") : r.state;
+function segList() {
+  let lastKind = null;
+  $("s-list").innerHTML = SEG.list.map((r) => {
+    const [a, b] = r.title.includes(" · ") ? r.title.split(" · ") : [r.title, r.note];
+    const head = r.kind !== lastKind ? `<div class="m-fam">${r.kind === "example" ? "Open-data examples" : "Added"}</div>` : "";
+    lastKind = r.kind;
+    return head + `<div class="seg-item ${r.id === SEG.id ? "on" : ""}" data-id="${esc(r.id)}">${esc(a)}
+      <small>${esc(b)}</small>
+      <small>${r.size_mm[0]} × ${r.size_mm[1]} mm · ${r.pixel_um.toFixed(1)} µm${r.ink_fraction != null ? ` · ink ${(100 * r.ink_fraction).toFixed(0)} %` : ""} · ${esc(stateText(r))}</small>
+    </div>`;
+  }).join("") || `<p class="muted">No segments yet.</p>`;
+  $("s-list").querySelectorAll(".seg-item").forEach((el) => el.onclick = () => segSelect(el.dataset.id));
+  segActions();
+}
+function segActions() {
+  const r = segRegion(), box = $("s-actions");
+  if (!r) { box.innerHTML = ""; return; }
+  const working = !["ready", "not prepared"].includes(r.state) && !r.state.startsWith("failed");
+  const canFlip = r.state === "ready" || r.state.startsWith("failed");
+  box.innerHTML = `<span class="muted" style="align-self:center">ink face: ${r.side > 0 ? "higher" : "lower"} layers</span>`
+    + (canFlip && !working ? `<button class="btn" id="s-flip" title="Recompute with the ink on the other face">flip</button>` : "")
+    + (!working && (r.kind === "added" || r.state === "ready")
+       ? `<button class="btn" id="s-del">${r.kind === "added" ? "delete" : "remove download"}</button>` : "");
+  if ($("s-flip")) $("s-flip").onclick = async () => {
+    try { SEG.list = (await api("/api/segments/side", { id: r.id, side: -r.side })).segments; } catch (e) { alert(e.message); return; }
+    DISP.meta = {}; DISP.chans.clear(); DISP.images.clear();
+    segList(); segRender();
+  };
+  if ($("s-del")) $("s-del").onclick = async () => {
+    if (!confirm(r.kind === "added" ? `Delete “${r.title}” and its files?` : `Remove the downloaded data of “${r.title}”? It can be downloaded again.`)) return;
+    try { SEG.list = (await api("/api/segments/delete", { id: r.id })).segments; } catch (e) { alert(e.message); return; }
+    DISP.meta = {}; DISP.chans.clear(); DISP.images.clear();
+    if (!segRegion()) SEG.id = SEG.list[0]?.id ?? null;
+    segList(); segRender();
+  };
+}
+function segSelect(id) {
+  if (id === SEG.id) return;
+  SEG.id = id; store.set("seg.id", id); SEG.view = null;
+  segList(); segRender();
+}
+function buildSegMethods() {
+  const starred = SEG.starred.starred, variants = SEG.starred.variants;
+  const item = (v) => `<div class="m-item" data-v="${v.name}" title="${v.idea.replace(/"/g, "&quot;")}">
+      <span class="star ${starred.includes(v.name) ? "on" : ""}" data-star="${v.name}">${starred.includes(v.name) ? "★" : "☆"}</span>${v.title}</div>`;
+  const subItem = (v) => item(v).replace('class="m-item"', 'class="m-item sub"');
+  const children = (n) => META.visualizers.filter((v) => v.variant_of === n).map(subItem).join("");
+  const shown = `<div class="m-fam starred">★ Starred</div>` +
+    (starred.filter((n) => META.visualizers.find((v) => v.name === n))
+       .map((n) => item(META.visualizers.find((v) => v.name === n)) + children(n)).join("") +
+     variants.map((x) => `<div class="m-item" data-variant="${esc(x.id)}" title="Variant of ${esc(x.vis)}">
+        <span class="star on">◆</span>${esc(x.title)}<span class="del" data-del="${esc(x.id)}">×</span></div>`).join("") ||
+     `<div class="val" style="padding:2px 8px">Star a filter (☆) to collect it here.</div>`);
+  const families = [...new Set(META.visualizers.map((v) => v.family))];
+  $("s-methods").innerHTML = shown + families.map((f) => `<div class="m-fam">${f}</div>` +
+    META.visualizers.filter((v) => v.family === f).map(item).join("")).join("");
+  $("s-methods").querySelectorAll(".m-item").forEach((el) => el.onclick = (e) => {
+    if (e.target.dataset.star) return toggleStar(e.target.dataset.star);
+    if (e.target.dataset.del) return deleteVariant(e.target.dataset.del);
+    if (el.dataset.variant) segSetVariant(el.dataset.variant); else segSetVis(el.dataset.v);
+  });
+  segHighlight();
+}
+async function savePromising() {
+  SEG.starred = await api("/api/starred", { starred: SEG.starred.starred, variants: SEG.starred.variants });
+  buildSegMethods();
+}
+function toggleStar(name) {
+  const s = SEG.starred.starred;
+  SEG.starred.starred = s.includes(name) ? s.filter((n) => n !== name) : [...s, name];
+  savePromising();
+}
+function deleteVariant(id) {
+  const v = SEG.starred.variants.find((x) => x.id === id);
+  if (!v || !confirm(`Delete variant “${v.title}”?`)) return;
+  SEG.starred.variants = SEG.starred.variants.filter((x) => x.id !== id);
+  if (SEG.variant === id) SEG.variant = null;
+  savePromising();
+}
+function segSetVis(name) {
+  SEG.vis = name; SEG.variant = null; store.set("seg.vis", name);
+  SEG.spec = loadSpec(name);
+  segRender();
+}
+function segSetVariant(id) {
+  const v = SEG.starred.variants.find((x) => x.id === id);
+  if (!v) return;
+  SEG.vis = v.vis; SEG.variant = id;
+  SEG.spec = upgradeSpec(v.vis, v.spec);
+  segRender();
+}
+function segMode(mode) {
+  SEG.mode = mode; store.set("seg.mode", mode);
+  segRender();
+}
+function segHighlight() {
+  $("s-methods").querySelectorAll(".m-item").forEach((el) => el.classList.toggle("on",
+    SEG.variant ? el.dataset.variant === SEG.variant : (!el.dataset.variant && el.dataset.v === SEG.vis)));
+  document.querySelectorAll("#tab-segments .modes button").forEach((b) => b.classList.toggle("on", b.dataset.mode === SEG.mode));
+  const v = META.visualizers.find((x) => x.name === SEG.vis);
+  const a = META.visualizers.find((x) => x.name === SEG.ref);
+  const variant = SEG.variant && SEG.starred.variants.find((x) => x.id === SEG.variant);
+  $("s-idea").innerHTML = v ? `<b>${variant ? variant.title + " (variant of " + v.title + ")" : v.title}</b>: ${v.idea}` : "";
+  $("s-info").textContent = a && v ? `A: ${a.title} · B: ${v.title}` : "";
+}
+
+// Builds the panes for the current mode. Each pane holds layers; each layer has a "world" that
+// gets the shared pan/zoom transform, so A, B and the labels always line up.
+function segRender() {
+  const r = segRegion();
+  clearInterval(SEG.blinkTimer);
+  clearInterval(SEG.poll);
+  segHighlight();
+  const views = $("s-views");
+  $("s-title").textContent = r ? r.title : "";
+  if (!r) { views.innerHTML = ""; return; }
+  if (r.state !== "ready") {
+    const busy = r.state !== "not prepared" && !r.state.startsWith("failed");
+    const mb = Math.round(r.h * r.w * (r.source.layers || 109) / 1e6);
+    const what = r.kind === "example"
+      ? `Preparing downloads ${r.size_mm[0]} × ${r.size_mm[1]} mm of CT at ${r.pixel_um.toFixed(1)} µm from the open-data
+         bucket (about ${mb} MB, kept on disk), then finds the papyrus face block by block: a few minutes in all.`
+      : `Preparing finds the papyrus face block by block (${r.size_mm[0]} × ${r.size_mm[1]} mm at ${r.pixel_um.toFixed(1)} µm).`;
+    views.innerHTML = `<div class="pane prep" style="cursor:default"><p>This segment is not prepared yet.</p>
+      <p>${what}</p>
+      <p>${busy ? "Working: " + esc(r.state) : `<button class="btn" id="s-prep">${r.kind === "example" ? "Download and prepare" : "Prepare"}</button>`}</p>
+      ${r.state.startsWith("failed") ? `<p style="color:var(--bad)">${esc(r.state)}</p>` : ""}</div>`;
+    if ($("s-prep")) $("s-prep").onclick = async () => { await api("/api/segments/prepare", { id: r.id }); segPoll(); };
+    if (busy) segPoll();
+    return;
+  }
+  const layer = (src, cls = "") => `<div class="layer ${cls}"><div class="world">
+      <img src="${src}" width="${r.w}" height="${r.h}" alt="" draggable="false"></div></div>`;
+  const live = visDisplay(SEG.vis).kind !== "animated";
+  const layerB = () => live ? `<div class="layer b"><div class="world"><canvas width="${r.w}" height="${r.h}"></canvas></div></div>`
+                            : layer(segUrl(SEG.vis, SEG.spec || {}, true), "b");
+  const labelLayer = () => ($("s-label").checked && r.label ? layer(`/seg/${r.id}/label.png`, "lab") : "");
+  $("s-label-box").style.opacity = r.label ? 1 : 0.5;
+  $("s-label-box").title = r.label ? "" : "This segment has no ink labels";
+  const a = META.visualizers.find((x) => x.name === SEG.ref), b = META.visualizers.find((x) => x.name === SEG.vis);
+  if (SEG.mode === "side") {
+    views.innerHTML = `
+      <div class="pane">${layer(segUrl(SEG.ref, refSpec()), "a")}${labelLayer()}<span class="pane-tag">A · ${a.title}</span></div>
+      <div class="pane">${layerB()}${labelLayer()}<span class="pane-tag">B · ${b.title}</span></div>`;
+  } else {
+    views.innerHTML = `<div class="pane">${layer(segUrl(SEG.ref, refSpec()), "a")}${layerB()}${labelLayer()}
+      ${SEG.mode === "swipe" ? `<div class="divider"></div><span class="pane-tag">A · ${a.title}</span><span class="pane-tag right">B · ${b.title}</span>`
+                             : `<span class="pane-tag" id="s-which"></span>`}</div>`;
+  }
+  SEG.panes = [...views.querySelectorAll(".pane")];
+  SEG.panes.forEach(segBindPane);
+  segTrackLoading();
+  if (!SEG.view) segFit(); else segApplyView();
+  segApplyLabel();
+  segApplyCompare();
+  segBlink();
+  dispLoad();
+  segPrefetch();
+}
+function segPoll() {
+  clearInterval(SEG.poll);
+  SEG.poll = setInterval(async () => {
+    const res = await api("/api/segments");
+    SEG.list = res.segments;
+    segList();
+    const r = segRegion();
+    if (!r || r.state === "ready" || r.state.startsWith("failed") || r.state === "not prepared") { clearInterval(SEG.poll); segRender(); }
+    else if (document.querySelector(".prep p:nth-child(3)")) document.querySelector(".prep p:nth-child(3)").textContent = "Working: " + r.state;
+  }, 2000);
+}
+function segTrackLoading() {
+  const imgs = [...$("s-views").querySelectorAll(".layer.a img, .layer.b img")];
+  if (!imgs.length) return;
+  const pane = SEG.panes[SEG.panes.length - 1];
+  const tag = document.createElement("div");
+  tag.className = "busy";
+  tag.textContent = "rendering … (the first time can take a minute)";
+  pane.appendChild(tag);
+  let pending = imgs.length;
+  imgs.forEach((img) => {
+    const done = () => { if (--pending <= 0) tag.remove(); };
+    if (img.complete && img.naturalWidth) done(); else { img.onload = done; img.onerror = () => { tag.textContent = "render failed"; }; }
+  });
+}
+function segPrefetch() {
+  // Render the next method in the list in the background, so ← / → feel instant.
+  const names = META.visualizers.map((v) => v.name);
+  const next = names[(names.indexOf(SEG.vis) + 1) % names.length];
+  const kind = visDisplay(next).kind, spec = loadSpec(next);
+  setTimeout(() => {
+    if (["scalar", "rgb", "overlay", "tints"].includes(kind)) fetch(`/segch/${SEG.id}/${next}.json${serverQuery(next, spec, true)}`);
+    else { const im = new Image(); im.src = segUrl(next, spec, true); }
+  }, 300);
+}
+function segFit() {
+  const r = segRegion(), pane = SEG.panes[0];
+  if (!r || !pane) return;
+  const k = Math.min(pane.clientWidth / r.w, pane.clientHeight / r.h);
+  SEG.view = { k, x: (pane.clientWidth - r.w * k) / 2, y: (pane.clientHeight - r.h * k) / 2 };
+  segApplyView();
+}
+function segApplyView() {
+  const { k, x, y } = SEG.view;
+  $("s-views").querySelectorAll(".world").forEach((w) => w.style.transform = `translate(${x}px, ${y}px) scale(${k})`);
+  SEG.panes.forEach((p) => p.classList.toggle("pixelated", k >= 2));
+}
+function segApplyLabel() {
+  $("s-views").querySelectorAll(".layer.lab").forEach((l) => l.style.opacity = $("s-opacity").value / 100);
+}
+function segApplyCompare() {
+  const pane = SEG.panes[0], b = pane && pane.querySelector(".layer.b");
+  if (!b || SEG.mode === "side") return;
+  if (SEG.mode === "swipe") {
+    const px = SEG.swipe * pane.clientWidth;
+    b.style.clipPath = SEG.showA ? "inset(0 0 0 100%)" : `inset(0 0 0 ${px}px)`;
+    pane.querySelector(".divider").style.left = px + "px";
+  } else {
+    b.style.clipPath = "";
+    b.style.visibility = SEG.showA ? "hidden" : "visible";
+    const a = META.visualizers.find((x) => x.name === SEG.ref), v = META.visualizers.find((x) => x.name === SEG.vis);
+    $("s-which").textContent = SEG.showA ? `A · ${a.title}` : `B · ${v.title}`;
+  }
+}
+function segBlink() {
+  clearInterval(SEG.blinkTimer);
+  if (SEG.mode === "blink" && $("s-autoblink").checked) {
+    SEG.blinkTimer = setInterval(() => { SEG.showA = !SEG.showA; segApplyCompare(); }, +$("s-blinkms").value);
+  }
+}
+function segBindPane(pane) {
+  pane.onmousedown = (e) => {
+    const onDivider = e.target.classList.contains("divider");
+    SEG.drag = { pane, divider: onDivider, x: e.clientX, y: e.clientY, vx: SEG.view.x, vy: SEG.view.y };
+    if (!onDivider) pane.classList.add("dragging");
+    e.preventDefault();
+  };
+  pane.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = pane.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const k = Math.min(16, Math.max(0.05, SEG.view.k * Math.exp(-e.deltaY * 0.0015)));
+    SEG.view.x = mx - (mx - SEG.view.x) * (k / SEG.view.k);
+    SEG.view.y = my - (my - SEG.view.y) * (k / SEG.view.k);
+    SEG.view.k = k;
+    segApplyView();
+  }, { passive: false });
+  pane.ondblclick = segFit;
+}
+// One global pair of listeners for panning and the swipe handle (panes are rebuilt often).
+window.addEventListener("mousemove", (e) => {
+  const d = SEG.drag;
+  if (!d) return;
+  if (d.divider) {
+    const rect = d.pane.getBoundingClientRect();
+    SEG.swipe = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    segApplyCompare();
+  } else {
+    SEG.view.x = d.vx + e.clientX - d.x;
+    SEG.view.y = d.vy + e.clientY - d.y;
+    segApplyView();
+  }
+});
+window.addEventListener("mouseup", () => {
+  if (SEG.drag) SEG.drag.pane.classList.remove("dragging");
+  SEG.drag = null;
+});
+function segKey(e) {
+  const names = META.visualizers.map((v) => v.name);
+  const k = e.key;
+  if (k === "ArrowRight" || k === "ArrowLeft") {
+    e.preventDefault();
+    const i = names.indexOf(SEG.vis);
+    segSetVis(names[(i + (k === "ArrowRight" ? 1 : -1) + names.length) % names.length]);
+  } else if (k === " ") {
+    e.preventDefault();
+    if (SEG.mode === "side") return;
+    SEG.showA = !SEG.showA; segApplyCompare();
+  } else if (k.toLowerCase() === "l") {
+    $("s-label").checked = !$("s-label").checked; segRender();
+  } else if (k.toLowerCase() === "f") {
+    segFit();
+  } else if (k === "1" || k === "2" || k === "3") {
+    segMode({ 1: "swipe", 2: "blink", 3: "side" }[k]);
+  } else if (k === "[" || k === "]") {
+    const ids = SEG.list.map((r) => r.id);
+    if (ids.length) segSelect(ids[(ids.indexOf(SEG.id) + (k === "]" ? 1 : -1) + ids.length) % ids.length]);
+  }
+}
+window.addEventListener("resize", () => { if (store.get("tab") === "segments") segApplyCompare(); });
+
+// --- Display engine (Segments, method B) -------------------------------------------------------
+// The server sends each channel of a method as 16-bit values (packed in a lossless PNG); the
+// colouring happens here through 65 536-entry lookup tables, so every slider redraws instantly.
+let CMAP_ANCHORS = { gray: [[0, 0, 0], [255, 255, 255]] };  // replaced by META.colormaps (visualizers._ANCHORS)
+const CMAP_CACHE = {};
+function cmapLUT(name) {  // 256 × RGB
+  if (CMAP_CACHE[name]) return CMAP_CACHE[name];
+  const a = CMAP_ANCHORS[name] || CMAP_ANCHORS.gray, lut = new Uint8Array(768);
+  for (let i = 0; i < 256; i++) {
+    const x = i / 255 * (a.length - 1), k = Math.min(a.length - 2, Math.floor(x)), f = x - k;
+    for (let c = 0; c < 3; c++) lut[3 * i + c] = Math.round(a[k][c] * (1 - f) + a[k + 1][c] * f);
+  }
+  return (CMAP_CACHE[name] = lut);
+}
+const visDisplay = (name) => (META.visualizers.find((v) => v.name === name) || {}).display || { kind: "image" };
+function defaultSpec(vis) {
+  const d = visDisplay(vis);
+  return { v: 2, notch: 0, speckle: 0, auto: true, lo: 1, hi: 99, gamma: 0, cmap: d.cmap || d.recolor || "gray", invert: false,
+           tmode: "off", t1: 90, t2: 99,
+           else: "clear", opacity: 100, strength: d.strength ?? 0.75, black: 0, white: 255, tints: tintDefaults(d) };
+}
+// One editable colour layer per tint channel (display kind "tints"); lo / hi are values of the channel.
+const tintDefaults = (d) => Object.fromEntries((d.tints || []).map((t) =>
+  [t.channel, { on: true, color: t.color, intensity: 1, auto: true, lo: null, hi: null }]));
+// Specs saved before v2 hold cmap "gray" for every fixed render; drop it where the render is recolourable.
+function upgradeSpec(vis, spec) {
+  const out = { ...spec };
+  if ((out.v || 1) < 2 && visDisplay(vis).recolor) delete out.cmap;
+  delete out.v;
+  const def = defaultSpec(vis), merged = { ...def, ...out };
+  merged.tints = Object.fromEntries(Object.entries(def.tints).map(([k, v]) => [k, { ...v, ...((out.tints || {})[k] || {}) }]));
+  return merged;
+}
+function loadSpec(vis) {
+  try { return upgradeSpec(vis, JSON.parse(store.get("seg.spec." + vis, "{}"))); }
+  catch { return defaultSpec(vis); }
+}
+function saveSpec() { if (!SEG.variant) store.set("seg.spec." + SEG.vis, JSON.stringify(SEG.spec)); }
+
+const DISP = { meta: {}, chans: new Map(), images: new Map(), token: 0, pending: false };
+async function dispMeta(id, vis, query) {
+  const key = `${id}/${vis}/${query}`;
+  if (!DISP.meta[key]) {
+    const m = await api(`/segch/${id}/${vis}.json${query}`);
+    for (const ch of m.channels) {  // cumulative histogram for percentile ↔ value
+      const cum = new Float64Array(1025); ch.hist.forEach((n, i) => cum[i + 1] = cum[i] + n);
+      ch.cum = cum;
+    }
+    DISP.meta[key] = m;
+  }
+  return DISP.meta[key];
+}
+async function decodeRGBA(url) {
+  const blob = await (await fetch(url)).blob();
+  const bmp = await createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
+  const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0);
+  return ctx.getImageData(0, 0, bmp.width, bmp.height);
+}
+async function dispChannel(id, vis, name, query) {
+  const key = `${id}/${vis}/${query}/${name}`;
+  if (!DISP.chans.has(key)) {
+    const d = (await decodeRGBA(`/segch/${id}/${vis}/${name}.png${query}`)).data, q = new Uint16Array(d.length / 4);
+    for (let i = 0, j = 0; i < q.length; i++, j += 4) q[i] = (d[j] << 8) | d[j + 1];
+    DISP.chans.set(key, q);
+    if (DISP.chans.size > 16) DISP.chans.delete(DISP.chans.keys().next().value);  // ~8 MB each
+  }
+  return DISP.chans.get(key);
+}
+const pctToQ = (ch, pct) => {
+  const total = ch.cum[1024], target = pct / 100 * total;
+  let lo = 0, hi = 1024;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (ch.cum[mid + 1] < target) lo = mid + 1; else hi = mid; }
+  return Math.min(65535, lo * 64 + 32);
+};
+const qToPct = (ch, q) => 100 * ch.cum[Math.max(0, Math.min(1024, Math.round(q / 64)))] / ch.cum[1024];
+const vToQ = (ch, v) => Math.max(0, Math.min(65535, (v - ch.qlo) / (ch.qhi - ch.qlo) * 65535));
+const qToV = (ch, q) => ch.qlo + q / 65535 * (ch.qhi - ch.qlo);
+function chRange(ch, spec) {
+  if (spec.auto) return [vToQ(ch, ch.range[0]), vToQ(ch, ch.range[1])];
+  return [pctToQ(ch, Math.min(spec.lo, spec.hi - 0.1)), pctToQ(ch, Math.max(spec.hi, spec.lo + 0.1))];
+}
+function toneLUT(ch, spec) {  // q → 0…255 after range, invert, gamma
+  const [a, b] = chRange(ch, spec), g = 1 / Math.pow(2, spec.gamma), lut = new Uint8Array(65536);
+  const span = Math.max(1, b - a);
+  for (let q = 0; q < 65536; q++) {
+    let t = Math.min(1, Math.max(0, (q - a) / span));
+    if (spec.invert) t = 1 - t;
+    lut[q] = Math.round(255 * Math.pow(t, g));
+  }
+  return lut;
+}
+function passLUT(ch, spec) {  // q → 1 if the threshold shows it
+  const lut = new Uint8Array(65536).fill(1);
+  if (spec.tmode === "off") return lut;
+  const t1 = pctToQ(ch, spec.t1), t2 = pctToQ(ch, spec.t2), lo = Math.min(t1, t2), hi = Math.max(t1, t2);
+  for (let q = 0; q < 65536; q++) {
+    lut[q] = spec.tmode === "above" ? q >= t1 : spec.tmode === "below" ? q <= t1
+           : spec.tmode === "between" ? (q >= lo && q <= hi) : (q < lo || q > hi);
+  }
+  return lut;
+}
+// CIELAB (D65) helpers, as research.lab_to_rgb / ops.to_lab on the server.
+const SRGB_ENCODE = (() => {  // linear 0…1 (4096 steps) → sRGB 0…255
+  const lut = new Uint8Array(4097);
+  for (let i = 0; i <= 4096; i++) {
+    const c = i / 4096;
+    lut[i] = Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055));
+  }
+  return lut;
+})();
+function labPacked(L, a, b) {
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200, e = 6 / 29, k = 3 * e * e;
+  const inv = (f) => f > e ? f * f * f : k * (f - 4 / 29);
+  const X = inv(fx) * 0.95047, Y = inv(fy), Z = inv(fz) * 1.08883;
+  const enc = (v) => SRGB_ENCODE[Math.round(Math.min(1, Math.max(0, v)) * 4096)];
+  return (255 << 24 | enc(0.0557 * X - 0.2040 * Y + 1.0570 * Z) << 16
+          | enc(-0.9689 * X + 1.8758 * Y + 0.0415 * Z) << 8 | enc(3.2406 * X - 1.5372 * Y - 0.4986 * Z)) >>> 0;
+}
+function hueVector(hex, chroma) {  // the colour's CIELAB hue as an (a, b) vector of length chroma
+  const lin = [1, 3, 5].map((i) => { const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+  const xyz = [[0.4124, 0.3576, 0.1805, 0.95047], [0.2126, 0.7152, 0.0722, 1], [0.0193, 0.1192, 0.9505, 1.08883]]
+    .map(([r, g, b, w]) => (r * lin[0] + g * lin[1] + b * lin[2]) / w);
+  const [fx, fy, fz] = xyz.map((v) => v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+  const a = 500 * (fx - fy), b = 200 * (fy - fz), n = Math.hypot(a, b);
+  return n < 1 ? [0, 0] : [a / n * chroma, b / n * chroma];  // a gray: no hue, no tint
+}
+const tintSpec = (spec, t) => ({ ...tintDefaults({ tints: [t] })[t.channel], ...((spec.tints || {})[t.channel] || {}) });
+function tintRange(ch, ts) {  // [lo, hi] in channel values
+  return ts.auto || ts.lo == null || ts.hi == null ? ch.range : [Math.min(ts.lo, ts.hi - 1e-3), Math.max(ts.hi, ts.lo + 1e-3)];
+}
+
+async function dispLoad() {
+  const token = ++DISP.token, id = SEG.id, vis = SEG.vis, kind = visDisplay(vis).kind;
+  if (!SEG.spec || SEG.specFor !== vis) { SEG.spec = SEG.variant ? SEG.spec : loadSpec(vis); SEG.specFor = vis; }
+  const query = serverQuery(vis, SEG.spec, true);
+  DISP.key = `${id}/${vis}/${query}`;
+  depthStatus();
+  dispSyncControls(null);
+  if (kind === "animated") { dispApplyLayer(); return; }
+  const pane = SEG.panes[SEG.panes.length - 1], tag = document.createElement("div");
+  tag.className = "busy"; pane.appendChild(tag);
+  tag.textContent = SEG.depth ? `computing depth ${SEG.depth > 0 ? "+" : ""}${SEG.depth} … (first time ~1 min)`
+                              : "computing … (the first time for a filter can take a minute)";
+  try {
+    if (kind === "image") {
+      if (!DISP.images.has(DISP.key)) DISP.images.set(DISP.key, await decodeRGBA(segUrl(vis, SEG.spec, true)));
+      if (DISP.images.size > 4) DISP.images.delete(DISP.images.keys().next().value);
+    } else {
+      const meta = await dispMeta(id, vis, query);
+      for (const ch of meta.channels) await dispChannel(id, vis, ch.name, query);
+    }
+    if (token !== DISP.token) return;
+    tag.remove();
+    dispSyncControls(DISP.meta[DISP.key]);
+    dispDraw();
+  } catch (e) { tag.textContent = "failed: " + e.message; }
+}
+function dispSchedule() {
+  saveSpec();
+  dispSyncControls(DISP.meta[DISP.key]);
+  if (DISP.pending) return;
+  DISP.pending = true;
+  requestAnimationFrame(() => { DISP.pending = false; dispDraw(); });
+}
+function dispApplyLayer() {
+  $("s-views").querySelectorAll(".layer.b").forEach((l) => l.style.opacity = SEG.spec.opacity / 100);
+}
+function dispDraw() {
+  const id = SEG.id, vis = SEG.vis, spec = SEG.spec, d = visDisplay(vis), r = segRegion();
+  const canvases = [...$("s-views").querySelectorAll(".layer.b canvas")];
+  dispApplyLayer();
+  if (!canvases.length || !r) return;
+  const out = new ImageData(r.w, r.h), px = new Uint32Array(out.data.buffer), n = r.w * r.h;
+  const pack = (R, G, B, A = 255) => (A << 24 | B << 16 | G << 8 | R) >>> 0;
+  if (d.kind === "image") {
+    const src = DISP.images.get(DISP.key); if (!src) return;
+    const lut = new Uint8Array(256), g = 1 / Math.pow(2, spec.gamma), span = Math.max(1, spec.white - spec.black);
+    for (let v = 0; v < 256; v++) {
+      let t = Math.min(1, Math.max(0, (v - spec.black) / span)); if (spec.invert) t = 1 - t;
+      lut[v] = Math.round(255 * Math.pow(t, g));
+    }
+    const s8 = src.data, o8 = out.data;
+    for (let i = 0; i < s8.length; i += 4) { o8[i] = lut[s8[i]]; o8[i + 1] = lut[s8[i + 1]]; o8[i + 2] = lut[s8[i + 2]]; o8[i + 3] = 255; }
+  } else {
+    const meta = DISP.meta[DISP.key]; if (!meta) return;
+    const ch = (name) => meta.channels.find((c) => c.name === name);
+    const data = (name) => DISP.chans.get(`${DISP.key}/${name}`);
+    if (d.kind === "scalar") {
+      const c = ch(d.channel), q = data(d.channel), tone = toneLUT(c, spec), pass = passLUT(c, spec), cm = cmapLUT(spec.cmap);
+      const lut = new Uint32Array(65536);
+      for (let v = 0; v < 65536; v++) {
+        const t = tone[v];
+        lut[v] = pass[v] ? pack(cm[3 * t], cm[3 * t + 1], cm[3 * t + 2])
+               : spec.else === "clear" ? 0 : spec.else === "dark" ? pack(0, 0, 0) : pack(t >> 1, t >> 1, t >> 1);
+      }
+      for (let i = 0; i < n; i++) px[i] = lut[q[i]];
+    } else if (d.kind === "rgb") {
+      const [r0, g0, b0] = d.channels.map((name) => toneLUT(ch(name), spec));
+      const [qr, qg, qb] = d.channels.map(data);
+      for (let i = 0; i < n; i++) px[i] = pack(r0[qr[i]], g0[qg[i]], b0[qb[i]]);
+    } else if (d.kind === "overlay") {
+      const cb = ch(d.base), ch_ = ch(d.heat), qb = data(d.base), qh = data(d.heat);
+      const base = toneLUT(cb, { ...defaultSpec(vis), auto: true }), heat = toneLUT(ch_, spec), pass = passLUT(ch_, spec);
+      const cm = cmapLUT(spec.cmap), k = spec.strength / 255;
+      for (let i = 0; i < n; i++) {
+        const g = base[qb[i]], hq = qh[i], t = heat[hq];
+        if (!pass[hq]) { px[i] = spec.else === "clear" ? 0 : spec.else === "dark" ? pack(0, 0, 0) : pack(g, g, g); continue; }
+        const a = t * k;
+        px[i] = pack(g * (1 - a) + cm[3 * t] * a, g * (1 - a) + cm[3 * t + 1] * a, g * (1 - a) + cm[3 * t + 2] * a);
+      }
+    } else if (d.kind === "tints") {  // generalise.tints_compose: lightness from the base, chroma from the tints
+      const base = toneLUT(ch(d.base), spec), qb = data(d.base), [L0, L1] = d.lightness;
+      const layers = d.tints.map((t) => [t, tintSpec(spec, t)]).filter(([, ts]) => ts.on && ts.intensity > 0)
+        .map(([t, ts]) => {
+          const c = ch(t.channel), [lo, hi] = tintRange(c, ts), [va, vb] = hueVector(ts.color, d.chroma * ts.intensity);
+          const la = new Float32Array(65536), lb = new Float32Array(65536);
+          for (let q = 0; q < 65536; q++) {
+            const h = Math.min(1, Math.max(0, (qToV(c, q) - lo) / (hi - lo)));
+            la[q] = h * va; lb[q] = h * vb;
+          }
+          return [data(t.channel), la, lb];
+        });
+      const qs = layers.map((x) => x[0]), las = layers.map((x) => x[1]), lbs = layers.map((x) => x[2]), m = layers.length;
+      for (let i = 0; i < n; i++) {
+        let a = 0, b = 0;
+        for (let k = 0; k < m; k++) { const q = qs[k][i]; a += las[k][q]; b += lbs[k][q]; }
+        px[i] = labPacked(L0 + L1 * base[qb[i]] / 255, a, b);
+      }
+    }
+  }
+  canvases.forEach((c) => c.getContext("2d").putImageData(out, 0, 0));
+}
+
+// --- Depth scan: B as if the segment lay deeper or shallower (server: segments.compute_products) ---
+const depthLabel = (d) => `${d > 0 ? "+" : ""}${d} planes = ${d > 0 ? "+" : ""}${(d * 2.4).toFixed(1)} µm `
+  + (d > 0 ? "into the sheet" : d < 0 ? "in front of the face" : "(the surface)");
+function depthQuery() {
+  const sp = SEG.spec || {};
+  return new URLSearchParams({ seg: SEG.id, vis: SEG.vis, notch: sp.notch || 0, speckle: sp.speckle || 0,
+                               fixed: SEG.dfixed ? 1 : 0 });
+}
+async function depthStatus() {
+  if (!SEG.id || !SEG.vis) return;
+  const asked = depthQuery().toString();
+  let st;
+  try { st = await api(`/api/depthscan?${asked}`); } catch { return; }
+  if (asked !== depthQuery().toString()) return;  // the method, segment or mode changed meanwhile
+  SEG.depthStatus = st;
+  drawDepthTicks();
+  clearTimeout(SEG.depthPoll);
+  if (st.running) SEG.depthPoll = setTimeout(depthStatus, 5000);
+}
+function drawDepthTicks() {
+  const st = SEG.depthStatus || { depths: [], ready: [] }, ready = new Set(st.ready);
+  $("d-depth-ticks").innerHTML = st.depths.map((d) =>
+    `<span data-d="${d}" class="${ready.has(d) ? "ready" : ""} ${d === SEG.depth ? "on" : ""} ${d === 0 ? "zero" : ""}"
+       title="${depthLabel(d)}${ready.has(d) ? "" : " (not computed yet)"}"></span>`).join("");
+  $("d-depth-ticks").querySelectorAll("span").forEach((el) => el.onclick = () => setDepth(+el.dataset.d));
+  $("d-depth-scan").textContent = st.running ? `computing ${st.ready.length}/${st.depths.length} …` : "compute all";
+  $("d-depth-play").textContent = SEG.depthPlay ? "■ stop" : "▶ play";
+}
+function setDepth(d) {
+  if (d === SEG.depth) return;
+  SEG.depth = d; store.set("seg.depth", String(d));
+  $("d-depth").value = d; $("d-depth-v").textContent = depthLabel(d);
+  if (visDisplay(SEG.vis).kind === "animated") segRender(); else dispLoad();
+}
+function depthPlay() {
+  if (SEG.depthPlay) { clearInterval(SEG.depthPlay); SEG.depthPlay = null; drawDepthTicks(); return; }
+  const ready = (SEG.depthStatus || { ready: [] }).ready;
+  if (ready.length < 2) { $("d-depth-note").textContent = "Play needs computed depths: press \"compute all\" first."; return; }
+  let dir = 1;
+  SEG.depthPlay = setInterval(() => {  // back and forth over the computed depths
+    const list = (SEG.depthStatus || { ready }).ready, i = list.indexOf(SEG.depth);
+    if (i < 0) { setDepth(list[0]); return; }
+    if (i + dir < 0 || i + dir >= list.length) dir = -dir;
+    setDepth(list[i + dir]);
+  }, 1200);
+  drawDepthTicks();
+}
+function bindDepthControls() {
+  $("d-depth").addEventListener("input", () => $("d-depth-v").textContent = depthLabel(+$("d-depth").value));
+  $("d-depth").addEventListener("change", () => setDepth(+$("d-depth").value));
+  $("d-dmode").addEventListener("change", () => {
+    SEG.dfixed = $("d-dmode").value === "1"; store.set("seg.dfixed", SEG.dfixed ? "1" : "0");
+    if (SEG.depth) dispLoad(); else depthStatus();
+  });
+  $("d-depth-zero").onclick = () => setDepth(0);
+  $("d-depth-play").onclick = depthPlay;
+  $("d-depth-scan").onclick = async () => {
+    const q = Object.fromEntries(depthQuery());
+    await api("/api/depthscan", { ...q, notch: +q.notch, speckle: +q.speckle, fixed: SEG.dfixed });
+    depthStatus();
+  };
+}
+function syncDepthControls() {
+  $("d-depth").value = SEG.depth; $("d-depth-v").textContent = depthLabel(SEG.depth);
+  $("d-dmode").value = SEG.dfixed ? "1" : "0";
+  drawDepthTicks();
+}
+
+// --- Display controls -------------------------------------------------------------------------
+function dispSyncControls(meta) {
+  const spec = SEG.spec, d = visDisplay(SEG.vis), kind = d.kind;
+  const show = (id, on) => $(id).classList.toggle("hidden", !on);
+  $("d-kind").textContent = { scalar: "one channel → colour scheme", rgb: "three channels → RGB",
+    overlay: "heat over gray skin", tints: "gray skin (range, gamma) + colour tints", image: d.recolor ? "fixed render: colour scheme (re-rendered), levels, gamma"
+                                                      : "fixed colouring: levels and gamma only",
+    animated: "animation: opacity only" }[kind] || "";
+  show("d-range", ["scalar", "rgb", "overlay", "tints"].includes(kind));
+  show("d-tints", kind === "tints");
+  if (kind === "tints") syncTints(meta, d, spec);
+  show("d-levels", kind === "image");
+  show("d-colour", kind === "scalar" || kind === "overlay" || !!d.recolor);
+  show("d-strength-box", kind === "overlay");
+  show("d-thresh", kind === "scalar" || kind === "overlay");
+  show("d-t2-box", spec.tmode === "between" || spec.tmode === "outside");
+  $("d-gamma").parentElement && ($("d-gamma").disabled = kind === "animated");
+  $("d-auto").checked = spec.auto;
+  $("d-lo").value = spec.lo; $("d-hi").value = spec.hi;
+  $("d-gamma").value = spec.gamma; $("d-gamma-v").textContent = "γ " + Math.pow(2, spec.gamma).toFixed(2);
+  $("d-cmap").value = spec.cmap; $("d-invert").checked = spec.invert;
+  $("d-cmap-bar").style.background = `linear-gradient(to right, ${(CMAP_ANCHORS[spec.cmap] || CMAP_ANCHORS.gray)
+    .map((c) => `rgb(${c})`).join(",")})`;
+  $("d-strength").value = spec.strength; $("d-strength-v").textContent = (+spec.strength).toFixed(2);
+  $("d-tmode").value = spec.tmode; $("d-t1").value = spec.t1; $("d-t2").value = spec.t2; $("d-else").value = spec.else;
+  $("d-opacity").value = spec.opacity; $("d-opacity-v").textContent = spec.opacity + " %";
+  $("d-notch").value = spec.notch || 0; $("d-notch-a").value = refNotch();
+  $("d-speckle").value = spec.speckle || 0; $("d-speckle-a").value = refSpeckle();
+  $("d-black").value = spec.black; $("d-white").value = spec.white;
+  syncDepthControls();
+  $("d-black-v").textContent = spec.black; $("d-white-v").textContent = spec.white;
+  const main = meta && meta.channels.length
+    ? meta.channels.find((c) => c.name === (d.channel || d.heat || d.base)) || meta.channels[0] : null;
+  const fmt = (q) => main ? qToV(main, q).toPrecision(4) : "";
+  if (main) {
+    const [a, b] = chRange(main, spec);
+    $("d-lo-v").textContent = `${spec.auto ? qToPct(main, a).toFixed(1) : spec.lo} % = ${fmt(a)}`;
+    $("d-hi-v").textContent = `${spec.auto ? qToPct(main, b).toFixed(1) : spec.hi} % = ${fmt(b)}`;
+    $("d-t1-v").textContent = `${spec.t1} % = ${fmt(pctToQ(main, spec.t1))}`;
+    $("d-t2-v").textContent = `${spec.t2} % = ${fmt(pctToQ(main, spec.t2))}`;
+  }
+  drawHist(meta, spec);
+}
+function buildTints(d) {
+  const box = $("d-tints");
+  if (box.dataset.vis === SEG.vis) return;
+  box.dataset.vis = SEG.vis;
+  box.innerHTML = d.tints.map((t) => `<div class="tint" data-ch="${t.channel}">
+      <div class="row"><label><input type="checkbox" class="t-on"> <b>${t.label}</b></label>
+        <input type="color" class="t-color" title="hue of this tint"></div>
+      <label>intensity <span class="val t-int-v"></span></label>
+      <input type="range" class="t-int" min="0" max="2.5" step="0.05">
+      <canvas class="t-hist" width="240" height="44"></canvas>
+      <label><input type="checkbox" class="t-auto"> default range (fixed, the same on every segment)</label>
+      <label>min <span class="val t-lo-v"></span></label><input type="range" class="t-lo" step="any">
+      <label>max <span class="val t-hi-v"></span></label><input type="range" class="t-hi" step="any">
+    </div>`).join("");
+  box.querySelectorAll(".tint").forEach((el) => {
+    const name = el.dataset.ch, get = (cls) => el.querySelector(cls);
+    const edit = (fn) => () => {
+      const spec = SEG.spec, t = d.tints.find((x) => x.channel === name);
+      spec.tints = spec.tints || {};
+      spec.tints[name] = tintSpec(spec, t);
+      fn(spec.tints[name]);
+      dispSchedule();
+    };
+    const pinRange = (ts) => {  // leaving the default range starts from it
+      if (!ts.auto) return;
+      const c = (DISP.meta[DISP.key] || { channels: [] }).channels.find((x) => x.name === name);
+      if (c) [ts.lo, ts.hi] = c.range;
+      ts.auto = false;
+    };
+    get(".t-on").addEventListener("change", edit((ts) => ts.on = get(".t-on").checked));
+    get(".t-color").addEventListener("input", edit((ts) => ts.color = get(".t-color").value));
+    get(".t-int").addEventListener("input", edit((ts) => ts.intensity = +get(".t-int").value));
+    get(".t-auto").addEventListener("change", edit((ts) => { if (get(".t-auto").checked) ts.auto = true; else pinRange(ts); }));
+    get(".t-lo").addEventListener("input", edit((ts) => { pinRange(ts); ts.lo = +get(".t-lo").value; }));
+    get(".t-hi").addEventListener("input", edit((ts) => { pinRange(ts); ts.hi = +get(".t-hi").value; }));
+  });
+}
+function syncTints(meta, d, spec) {
+  buildTints(d);
+  $("d-tints").querySelectorAll(".tint").forEach((el) => {
+    const t = d.tints.find((x) => x.channel === el.dataset.ch), ts = tintSpec(spec, t), get = (cls) => el.querySelector(cls);
+    get(".t-on").checked = ts.on; get(".t-color").value = ts.color;
+    get(".t-int").value = ts.intensity; get(".t-int-v").textContent = (+ts.intensity).toFixed(2) + "×";
+    get(".t-auto").checked = ts.auto;
+    const c = meta && meta.channels.find((x) => x.name === t.channel);
+    if (!c) return;
+    const [lo, hi] = tintRange(c, ts);
+    for (const cls of [".t-lo", ".t-hi"]) { get(cls).min = c.qlo; get(cls).max = c.qhi; }
+    get(".t-lo").value = lo; get(".t-hi").value = hi;
+    const pct = (v) => qToPct(c, vToQ(c, v)).toFixed(1);
+    get(".t-lo-v").textContent = `${lo.toFixed(2)} spreads (p ${pct(lo)})`;
+    get(".t-hi-v").textContent = `${hi.toFixed(2)} spreads (p ${pct(hi)})`;
+    drawChannelHist(get(".t-hist"), c, [vToQ(c, lo), vToQ(c, hi)], ts.color);
+  });
+}
+function drawChannelHist(canvas, ch, [a, b], colour) {  // log histogram of a channel with its [a, b] range (q units)
+  const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height, X = (q) => q / 65535 * W;
+  ctx.clearRect(0, 0, W, H);
+  const bins = 120, agg = new Float64Array(bins);
+  ch.hist.forEach((n, i) => agg[Math.floor(i * bins / 1024)] += n);
+  const max = Math.log1p(Math.max(...agg));
+  ctx.fillStyle = colour + "33"; ctx.fillRect(X(a), 0, X(b) - X(a), H);
+  ctx.strokeStyle = "#bbb"; ctx.beginPath();
+  agg.forEach((n, i) => { const x = i / (bins - 1) * W, y = H - Math.log1p(n) / max * (H - 4);
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+  ctx.stroke();
+  ctx.strokeStyle = colour; [a, b].forEach((q) => { ctx.beginPath(); ctx.moveTo(X(q), 0); ctx.lineTo(X(q), H); ctx.stroke(); });
+}
+function drawHist(meta, spec) {
+  const c = $("d-hist"), ctx = c.getContext("2d"), W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  if (!meta || !meta.channels.length) return;
+  const d = visDisplay(SEG.vis);
+  const chans = d.kind === "rgb" ? d.channels.map((n) => meta.channels.find((x) => x.name === n))
+              : [meta.channels.find((x) => x.name === (d.channel || d.heat || d.base))];
+  const colors = d.kind === "rgb" ? ["#ff5a5a", "#5aff7a", "#5a9aff"] : ["#bbb"];
+  chans.forEach((ch, k) => {
+    const bins = 120, agg = new Float64Array(bins);
+    ch.hist.forEach((n, i) => agg[Math.floor(i * bins / 1024)] += n);
+    const max = Math.log1p(Math.max(...agg));
+    ctx.strokeStyle = colors[k]; ctx.beginPath();
+    agg.forEach((n, i) => { const x = i / (bins - 1) * W, y = H - Math.log1p(n) / max * (H - 4);
+      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+    ctx.stroke();
+  });
+  const main = chans[0], X = (q) => q / 65535 * W;
+  const [a, b] = chRange(main, spec);
+  ctx.fillStyle = "rgba(255,204,51,.15)"; ctx.fillRect(X(a), 0, X(b) - X(a), H);
+  ctx.strokeStyle = "#ffcc33"; [a, b].forEach((q) => { ctx.beginPath(); ctx.moveTo(X(q), 0); ctx.lineTo(X(q), H); ctx.stroke(); });
+  if (spec.tmode !== "off" && d.kind !== "rgb") {
+    ctx.strokeStyle = "#ef6461";
+    [spec.t1, ...(spec.tmode === "between" || spec.tmode === "outside" ? [spec.t2] : [])].forEach((t) => {
+      const q = pctToQ(main, t); ctx.beginPath(); ctx.moveTo(X(q), 0); ctx.lineTo(X(q), H); ctx.stroke(); });
+  }
+}
+function bindDisplayControls() {
+  bindDepthControls();
+  $("d-cmap").innerHTML = Object.keys(CMAP_ANCHORS).map((n) => `<option>${n}</option>`).join("");
+  const on = (id, ev, fn) => $(id).addEventListener(ev, () => { fn($(id)); dispSchedule(); });
+  on("d-auto", "change", (el) => SEG.spec.auto = el.checked);
+  on("d-lo", "input", (el) => { SEG.spec.lo = +el.value; SEG.spec.auto = false; });
+  on("d-hi", "input", (el) => { SEG.spec.hi = +el.value; SEG.spec.auto = false; });
+  on("d-gamma", "input", (el) => SEG.spec.gamma = +el.value);
+  // A recolourable fixed render is redrawn by the server in the new colour map.
+  on("d-cmap", "change", (el) => { SEG.spec.cmap = el.value; if (visDisplay(SEG.vis).recolor) { saveSpec(); dispLoad(); } });
+  on("d-invert", "change", (el) => SEG.spec.invert = el.checked);
+  on("d-strength", "input", (el) => SEG.spec.strength = +el.value);
+  on("d-tmode", "change", (el) => SEG.spec.tmode = el.value);
+  on("d-t1", "input", (el) => SEG.spec.t1 = +el.value);
+  on("d-t2", "input", (el) => SEG.spec.t2 = +el.value);
+  on("d-else", "change", (el) => SEG.spec.else = el.value);
+  on("d-opacity", "input", (el) => SEG.spec.opacity = +el.value);
+  // The pre-filter changes the data, not only the colouring: reload B (or A).
+  $("d-notch").addEventListener("change", () => { SEG.spec.notch = +$("d-notch").value; saveSpec(); segRender(); });
+  $("d-notch-a").addEventListener("change", () => { store.set("seg.refNotch", $("d-notch-a").value); segRender(); });
+  $("d-speckle").addEventListener("change", () => { SEG.spec.speckle = +$("d-speckle").value; saveSpec(); segRender(); });
+  $("d-speckle-a").addEventListener("change", () => { store.set("seg.refSpeckle", $("d-speckle-a").value); segRender(); });
+  on("d-black", "input", (el) => SEG.spec.black = Math.min(+el.value, SEG.spec.white - 1));
+  on("d-white", "input", (el) => SEG.spec.white = Math.max(+el.value, SEG.spec.black + 1));
+  $("d-reset").onclick = () => { SEG.spec = defaultSpec(SEG.vis); dispSchedule(); };
+  $("d-save").onclick = () => {
+    const v = META.visualizers.find((x) => x.name === SEG.vis), sp = SEG.spec;
+    const parts = [v.title];
+    if (["scalar", "overlay"].includes(v.display.kind) || v.display.recolor) parts.push(sp.cmap + (sp.invert ? " inv" : ""));
+    if (!sp.auto) parts.push(`${sp.lo}–${sp.hi} %`);
+    if (sp.speckle) parts.push(`despeckle ${sp.speckle} µm`);
+    if (sp.notch) parts.push(`notch ±${sp.notch}°`);
+    if (sp.tmode !== "off") parts.push(`${sp.tmode} ${sp.t1}${["between", "outside"].includes(sp.tmode) ? "–" + sp.t2 : ""} %`);
+    const title = prompt("Name of the variant", parts.join(" · "));
+    if (!title) return;
+    const id = `${SEG.vis}-${Date.now().toString(36)}`;
+    SEG.starred.variants.push({ id, title, vis: SEG.vis, spec: { ...SEG.spec } });
+    SEG.variant = id;
+    savePromising();
+  };
+}
+
+// --- Adding a segment ---------------------------------------------------------------------------
+const ADD = { src: "upload" };
+function addOpen() {
+  $("a-err").textContent = ""; $("a-progress").textContent = ""; $("a-go").disabled = false;
+  $("add-dlg").showModal();
+}
+function addMode(src) {
+  ADD.src = src;
+  document.querySelectorAll("#add-dlg [data-src]").forEach((b) => b.classList.toggle("on", b.dataset.src === src));
+  $("a-upload").classList.toggle("hidden", src !== "upload");
+  $("a-path").classList.toggle("hidden", src !== "path");
+}
+const natural = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true });
+function addFilesInfo() {
+  const files = [...$("a-files").files].sort(natural);
+  const mb = files.reduce((n, f) => n + f.size, 0) / 1e6;
+  $("a-files-info").textContent = files.length
+    ? `${files.length} file${files.length > 1 ? "s" : ""}, ${mb.toFixed(0)} MB: ${files[0].name}${files.length > 1 ? " … " + files[files.length - 1].name : ""}`
+    : "Select every layer at once (e.g. 00.tif … 64.tif). They are stacked in file-name order.";
+  if (!$("a-title").value && files.length) $("a-title").value = files[0].webkitRelativePath.split("/")[0] || "";
+}
+async function addUpload(files) {
+  const { upload } = await api("/api/upload/start", {});
+  const total = files.reduce((n, f) => n + f.size, 0);
+  let sent = 0;
+  for (const f of files) {
+    $("a-progress").textContent = `uploading ${f.name} (${Math.round(100 * sent / total)} %)`;
+    const res = await fetch(`/api/upload/${upload}/${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+    if (!res.ok) throw new Error((await res.json()).error || res.statusText);
+    sent += f.size;
+  }
+  return upload;
+}
+async function addGo() {
+  $("a-err").textContent = "";
+  const num = (id) => $(id).value === "" ? null : +$(id).value;
+  const crop = ["a-y", "a-x", "a-h", "a-w"].map(num);
+  if (crop.some((v) => v !== null) && crop.some((v) => v === null)) { $("a-err").textContent = "Give all four crop numbers, or none."; return; }
+  const body = { title: $("a-title").value.trim(), layer_um: num("a-layer"), pixel_um: num("a-pixel"),
+                 side: +$("a-side").value, bin: +$("a-bin").value, crop: crop[0] === null ? null : crop };
+  $("a-go").disabled = true;
+  try {
+    if (ADD.src === "upload") {
+      const files = [...$("a-files").files].sort(natural), label = $("a-label").files[0];
+      if (!files.length) throw new Error("Choose the layer files first.");
+      if (body.layer_um === null) throw new Error("Give the layer spacing (the scan's voxel size).");
+      body.upload = await addUpload(label ? [...files, label] : files);
+      body.files = files.map((f) => f.name);
+      if (label) body.label_file = label.name;
+    } else {
+      body.path = $("a-src").value.trim(); body.level = num("a-level") || 0;
+      body.label_path = $("a-label-src").value.trim() || null;
+      if (!body.path) throw new Error("Give a path or URL.");
+    }
+    $("a-progress").textContent = "reading …";
+    const res = await api("/api/segments/add", body);
+    SEG.list = res.segments; SEG.id = res.id; store.set("seg.id", res.id); SEG.view = null;
+    $("add-dlg").close();
+    segList(); segRender();
+  } catch (e) {
+    $("a-err").textContent = e.message; $("a-progress").textContent = "";
+    if (body.upload) api("/api/upload/cancel", { upload: body.upload }).catch(() => {});
+  } finally { $("a-go").disabled = false; }
+}
+function bindAddDialog() {
+  $("s-add").onclick = addOpen;
+  document.querySelectorAll("#add-dlg [data-src]").forEach((b) => b.onclick = () => addMode(b.dataset.src));
+  $("a-files").onchange = addFilesInfo;
+  $("a-cancel").onclick = () => $("add-dlg").close();
+  $("a-go").onclick = addGo;
+}
+
+// --- Start --------------------------------------------------------------------------------------
+const fullName = (n) => (META.visualizers.find((v) => v.name === n || v.short === n) || {}).name;
+(async () => {
+  const params = new URLSearchParams(location.search);
+  META = await api("/api/meta");
+  CMAP_ANCHORS = META.colormaps;
+  SEG.starred = await api("/api/starred");
+  // A view can be shared as ?tab=segments&seg=…&ref=…&vis=…&spec={json}
+  for (const k of ["seg", "ref", "vis"]) if (params.get(k)) SEG[k === "seg" ? "id" : k] = params.get(k);
+  SEG.vis = fullName(SEG.vis) || "gen_two_hue";
+  SEG.ref = fullName(SEG.ref) || "mid_slice";
+  SEG.spec = loadSpec(SEG.vis);
+  if (params.get("spec")) { try { SEG.spec = { ...SEG.spec, ...JSON.parse(params.get("spec")) }; SEG.specFor = SEG.vis; } catch {} }
+  bindDisplayControls();
+  bindAddDialog();
+  if (params.get("tab")) store.set("tab", params.get("tab"));
+  const rec = new Set(META.recommended);
+  $("methods-body").innerHTML = META.visualizers.map((v) =>
+    `<tr><td><span class="chip">${v.family}</span></td><td><b>${esc(v.title)}</b>${rec.has(v.name) ? '<span class="rec">recommended</span>' : ""}
+      <br><span class="muted">${v.short}</span></td><td>${esc(v.idea)}</td></tr>`).join("");
+  showTab(store.get("tab", "segments"));
+})();
+</script>
+</body>
+</html>
